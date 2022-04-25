@@ -9,7 +9,8 @@
         "C_Cpp.default.cppStandard": "c++14",
         "C_Cpp.default.cStandard": "c11",
         "C_Cpp.formatting": "Disabled",
-        "C_Cpp.intelliSenseEngine": "Default",
+        "C_Cpp.intelliSenseEngineFallback": "Disabled", //需要添加的
+        "C_Cpp.intelliSenseEngine": "Tag Parser",  //  需要添加的
         "C_Cpp.vcpkg.enabled": false,
         "C_Cpp.workspaceParsingPriority": "low",
         "cmake.buildBeforeRun": true,
@@ -37,7 +38,6 @@
         "editor.minimap.renderCharacters": false,
         "editor.minimap.showSlider": "always",
         "editor.suggest.localityBonus": true,
-        "editor.tabSize": 8,
         "editor.wordWrapColumn": 120,
         "explorer.openEditors.visible": 0,
         "files.insertFinalNewline": true,
@@ -136,5 +136,6 @@
         "yaml.schemas": {
                 "${workspaceFolder}/validation/module_schema.yaml": "${workspaceFolder}/src/modules/*/module.yaml"
         },
-        "cortex-debug.openocdPath": "${env:PICO_SDK_PATH}/../openocd/src/openocd"       // Added for rp2040
+        "cortex-debug.openocdPath": "${env:PICO_SDK_PATH}/../openocd/src/openocd",
+        "files.autoSave": "onFocusChange" // Added for rp2040
 }

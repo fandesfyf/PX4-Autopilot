@@ -1,5 +1,0 @@
-menuconfig SYSTEMCMDS_NSHTERM
-	bool "nshterm"
-	default n
-	---help---
-		Enable support for nshterm

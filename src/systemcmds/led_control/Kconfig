@@ -1,5 +1,0 @@
-menuconfig SYSTEMCMDS_LED_CONTROL
-	bool "led_control"
-	default n
-	---help---
-		Enable support for led_control

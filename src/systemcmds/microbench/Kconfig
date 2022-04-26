@@ -1,5 +1,0 @@
-menuconfig SYSTEMCMDS_MICROBENCH
-	bool "microbench"
-	default n
-	---help---
-		Enable support for microbench

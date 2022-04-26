@@ -1,5 +1,0 @@
-menuconfig SYSTEMCMDS_PWM
-	bool "pwm"
-	default n
-	---help---
-		Enable support for pwm

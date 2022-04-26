@@ -1,5 +1,0 @@
-menuconfig SYSTEMCMDS_SYSTEM_TIME
-	bool "system_time"
-	default n
-	---help---
-		Enable support for system_time

@@ -1,5 +1,0 @@
-menuconfig SYSTEMCMDS_MTD
-	bool "mtd"
-	default n
-	---help---
-		Enable support for mtd

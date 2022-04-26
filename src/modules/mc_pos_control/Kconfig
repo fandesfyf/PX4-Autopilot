@@ -1,5 +1,0 @@
-menuconfig MODULES_MC_POS_CONTROL
-	bool "mc_pos_control"
-	default n
-	---help---
-		Enable support for mc_pos_control

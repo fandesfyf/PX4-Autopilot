@@ -1,5 +1,0 @@
-menuconfig MODULES_SIH
-	bool "sih"
-	default n
-	---help---
-		Enable support for sih

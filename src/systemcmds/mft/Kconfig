@@ -1,5 +1,0 @@
-menuconfig SYSTEMCMDS_MFT
-	bool "mft"
-	default n
-	---help---
-		Enable support for mft

@@ -1,7 +1,0 @@
-menuconfig DRIVERS_RPM
-	bool "rpm"
-	default n
-	---help---
-		Enable support for rpm
-
-rsource "*/Kconfig"

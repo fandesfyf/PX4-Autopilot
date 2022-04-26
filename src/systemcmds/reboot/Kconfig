@@ -1,5 +1,0 @@
-menuconfig SYSTEMCMDS_REBOOT
-	bool "reboot"
-	default n
-	---help---
-		Enable support for reboot

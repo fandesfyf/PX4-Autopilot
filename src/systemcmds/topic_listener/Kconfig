@@ -1,5 +1,0 @@
-menuconfig SYSTEMCMDS_TOPIC_LISTENER
-	bool "topic_listener"
-	default n
-	---help---
-		Enable support for topic_listener

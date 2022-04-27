@@ -2,7 +2,7 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "jlink (px4_fmu-v3)",
+            "name": "jlink (px4_fmu-v2)",
             "device": "STM32F427VI",
             "svdFile": "",
             "executable": "${command:cmake.launchTargetPath}",
@@ -22,7 +22,7 @@
             ]
         },
         {
-            "name": "blackmagic (px4_fmu-v3)",
+            "name": "blackmagic (px4_fmu-v2)",
             "device": "STM32F427VI",
             "svdFile": "",
             "executable": "${command:cmake.launchTargetPath}",

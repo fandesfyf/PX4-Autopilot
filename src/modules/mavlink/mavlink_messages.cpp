@@ -116,6 +116,7 @@
 #include "streams/VFR_HUD.hpp"
 #include "streams/VIBRATION.hpp"
 #include "streams/WIND_COV.hpp"
+#include "streams/CUSTOM_CMD.hpp"
 
 #if !defined(CONSTRAINED_FLASH)
 # include "streams/ADSB_VEHICLE.hpp"
@@ -315,6 +316,9 @@ union px4_custom_mode get_px4_custom_mode(uint8_t nav_state)
 }
 
 static const StreamListItem streams_list[] = {
+
+
+
 #if defined(HEARTBEAT_HPP)
 	create_stream_list_item<MavlinkStreamHeartbeat>(),
 #endif // HEARTBEAT_HPP
@@ -550,8 +554,11 @@ static const StreamListItem streams_list[] = {
 	create_stream_list_item<MavlinkStreamEfiStatus>(),
 #endif // EFI_STATUS_HPP
 #if defined(GPS_RTCM_DATA_HPP)
-	create_stream_list_item<MavlinkStreamGPSRTCMData>()
+	create_stream_list_item<MavlinkStreamGPSRTCMData>(),
 #endif // GPS_RTCM_DATA_HPP
+#if defined(CUSTOM_CMD)
+	create_stream_list_item<MavlinkStreamCustomCMD>(),
+#endif //
 };
 
 const char *get_stream_name(const uint16_t msg_id)

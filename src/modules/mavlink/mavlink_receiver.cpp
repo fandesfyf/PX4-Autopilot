@@ -114,7 +114,11 @@ MavlinkReceiver::acknowledge(uint8_t sysid, uint8_t compid, uint16_t command, ui
 void
 MavlinkReceiver::handle_message(mavlink_message_t *msg)
 {
+
 	switch (msg->msgid) {
+	case MAVLINK_MSG_ID_CUSTOM_CMD:
+		handle_message_custom_cmd(msg);
+		break;
 	case MAVLINK_MSG_ID_COMMAND_LONG:
 		handle_message_command_long(msg);
 		break;
@@ -375,7 +379,12 @@ MavlinkReceiver::evaluate_target_ok(int command, int target_system, int target_c
 
 	return target_ok;
 }
-
+void
+MavlinkReceiver::handle_message_custom_cmd(mavlink_message_t *msg)
+{
+	mavlink_log_info(&_mavlink_log_pub,"get comd msg");
+	PX4_INFO("in ge cmd msg");
+}
 void
 MavlinkReceiver::handle_message_command_long(mavlink_message_t *msg)
 {
@@ -998,6 +1007,7 @@ MavlinkReceiver::handle_message_set_position_target_local_ned(mavlink_message_t 
 {
 	mavlink_set_position_target_local_ned_t target_local_ned;
 	mavlink_msg_set_position_target_local_ned_decode(msg, &target_local_ned);
+	PX4_INFO("rec msg done!!!\n");
 
 	/* Only accept messages which are intended for this system */
 	if (_mavlink->get_forward_externalsp() &&
@@ -1089,7 +1099,7 @@ MavlinkReceiver::handle_message_set_position_target_local_ned(mavlink_message_t 
 		setpoint.yawspeed = (type_mask & POSITION_TARGET_TYPEMASK_YAW_RATE_IGNORE) ? (float)NAN : target_local_ned.yaw_rate;
 
 
-		offboard_control_mode_s ocm{};
+		offboard_control_mode_s ocm{};//offboard模式示例
 		ocm.position = PX4_ISFINITE(setpoint.x) || PX4_ISFINITE(setpoint.y) || PX4_ISFINITE(setpoint.z);
 		ocm.velocity = PX4_ISFINITE(setpoint.vx) || PX4_ISFINITE(setpoint.vy) || PX4_ISFINITE(setpoint.vz);
 		ocm.acceleration = PX4_ISFINITE(setpoint.acceleration[0]) || PX4_ISFINITE(setpoint.acceleration[1])
@@ -1109,8 +1119,12 @@ MavlinkReceiver::handle_message_set_position_target_local_ned(mavlink_message_t 
 
 			vehicle_status_s vehicle_status{};
 			_vehicle_status_sub.copy(&vehicle_status);
+			PX4_INFO("do msg !!!\n");
+
 
 			if (vehicle_status.nav_state == vehicle_status_s::NAVIGATION_STATE_OFFBOARD) {
+				PX4_INFO("publish msg !!!\n");
+
 				// only publish setpoint once in OFFBOARD
 				setpoint.timestamp = hrt_absolute_time();
 				_trajectory_setpoint_pub.publish(setpoint);
@@ -3170,6 +3184,7 @@ MavlinkReceiver::run()
 				/* if read failed, this loop won't execute */
 				for (ssize_t i = 0; i < nread; i++) {
 					if (mavlink_parse_char(_mavlink->get_channel(), buf[i], &msg, &_status)) {
+
 
 						/* check if we received version 2 and request a switch. */
 						if (!(_mavlink->get_status()->flags & MAVLINK_STATUS_FLAG_IN_MAVLINK1)) {

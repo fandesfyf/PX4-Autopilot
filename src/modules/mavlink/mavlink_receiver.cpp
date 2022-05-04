@@ -119,6 +119,7 @@ MavlinkReceiver::handle_message(mavlink_message_t *msg)
 	case MAVLINK_MSG_ID_CUSTOM_CMD:
 		handle_message_custom_cmd(msg);
 		break;
+
 	case MAVLINK_MSG_ID_COMMAND_LONG:
 		handle_message_command_long(msg);
 		break;
@@ -379,11 +380,88 @@ MavlinkReceiver::evaluate_target_ok(int command, int target_system, int target_c
 
 	return target_ok;
 }
+bool send_vehicle_command(const uint32_t cmd, const float param1 = NAN, const float param2 = NAN,
+			  const float param3 = NAN,  const float param4 = NAN, const double param5 = static_cast<double>(NAN),
+			  const double param6 = static_cast<double>(NAN), const float param7 = NAN)
+{
+	vehicle_command_s vcmd{};
+	vcmd.command = cmd;
+	vcmd.param1 = param1;
+	vcmd.param2 = param2;
+	vcmd.param3 = param3;
+	vcmd.param4 = param4;
+	vcmd.param5 = param5;
+	vcmd.param6 = param6;
+	vcmd.param7 = param7;
+
+	uORB::SubscriptionData<vehicle_status_s> vehicle_status_sub{ORB_ID(vehicle_status)};
+	vcmd.source_system = vehicle_status_sub.get().system_id;
+	vcmd.target_system = vehicle_status_sub.get().system_id;
+	vcmd.source_component = vehicle_status_sub.get().component_id;
+	vcmd.target_component = vehicle_status_sub.get().component_id;
+
+	uORB::Publication<vehicle_command_s> vcmd_pub{ORB_ID(vehicle_command)};
+	vcmd.timestamp = hrt_absolute_time();
+	return vcmd_pub.publish(vcmd);
+}
+
 void
 MavlinkReceiver::handle_message_custom_cmd(mavlink_message_t *msg)
 {
-	mavlink_log_info(&_mavlink_log_pub,"get comd msg");
-	PX4_INFO("in ge cmd msg");
+	mavlink_custom_cmd_t cmd_t;
+	mavlink_msg_custom_cmd_decode(msg, &cmd_t);
+
+	PX4_INFO("get cmd msg %d %f", cmd_t.cmd, (double)(cmd_t.data1));
+
+	switch (cmd_t.cmd) {
+	case 0://正常模式,进入offboard mode
+		is_offboard_mode = !is_offboard_mode;//设置线程标志位
+		break;
+
+	case 1://解锁
+		send_vehicle_command(vehicle_command_s::VEHICLE_CMD_COMPONENT_ARM_DISARM,
+				     static_cast<float>(vehicle_command_s::ARMING_ACTION_ARM), 0.f);//21196.f强制
+
+		break;
+
+	case 2://上锁
+		send_vehicle_command(vehicle_command_s::VEHICLE_CMD_COMPONENT_ARM_DISARM,
+				     static_cast<float>(vehicle_command_s::ARMING_ACTION_DISARM), 21196.f);//21196.f强制
+
+		break;
+
+	case 3://切换模式:降落\起飞\自稳
+		switch ((int)(cmd_t.data1)) {
+		case 1://降落
+			is_offboard_mode = false;
+			send_vehicle_command(vehicle_command_s::VEHICLE_CMD_DO_SET_MODE, 1.0f, PX4_CUSTOM_MAIN_MODE_AUTO,
+					     PX4_CUSTOM_SUB_MODE_AUTO_LAND);
+			break;
+
+		case 2://起飞
+			send_vehicle_command(vehicle_command_s::VEHICLE_CMD_NAV_TAKEOFF);
+			send_vehicle_command(vehicle_command_s::VEHICLE_CMD_COMPONENT_ARM_DISARM,
+					     static_cast<float>(vehicle_command_s::ARMING_ACTION_ARM),
+					     0.f);
+			break;
+
+		default:
+			is_offboard_mode = false;
+			send_vehicle_command(vehicle_command_s::VEHICLE_CMD_DO_SET_MODE, 1.0f, PX4_CUSTOM_MAIN_MODE_STABILIZED);
+			break;
+		}
+
+		break;
+
+	case 4:
+
+		break;
+
+	default:
+		break;
+	}
+
+
 }
 void
 MavlinkReceiver::handle_message_command_long(mavlink_message_t *msg)
@@ -1007,7 +1085,7 @@ MavlinkReceiver::handle_message_set_position_target_local_ned(mavlink_message_t 
 {
 	mavlink_set_position_target_local_ned_t target_local_ned;
 	mavlink_msg_set_position_target_local_ned_decode(msg, &target_local_ned);
-	PX4_INFO("rec msg done!!!\n");
+	PX4_INFO("rec target ned !!!\n");
 
 	/* Only accept messages which are intended for this system */
 	if (_mavlink->get_forward_externalsp() &&
@@ -1099,7 +1177,7 @@ MavlinkReceiver::handle_message_set_position_target_local_ned(mavlink_message_t 
 		setpoint.yawspeed = (type_mask & POSITION_TARGET_TYPEMASK_YAW_RATE_IGNORE) ? (float)NAN : target_local_ned.yaw_rate;
 
 
-		offboard_control_mode_s ocm{};//offboard模式示例
+		offboard_control_mode_s ocm{};//offboard模式设置
 		ocm.position = PX4_ISFINITE(setpoint.x) || PX4_ISFINITE(setpoint.y) || PX4_ISFINITE(setpoint.z);
 		ocm.velocity = PX4_ISFINITE(setpoint.vx) || PX4_ISFINITE(setpoint.vy) || PX4_ISFINITE(setpoint.vz);
 		ocm.acceleration = PX4_ISFINITE(setpoint.acceleration[0]) || PX4_ISFINITE(setpoint.acceleration[1])
@@ -1112,6 +1190,13 @@ MavlinkReceiver::handle_message_set_position_target_local_ned(mavlink_message_t 
 			return;
 		}
 
+		offboard_ocm = ocm;
+		offboard_pos_setpoint = setpoint;
+		PX4_INFO("printf %d %d %f %f %f %f %f %f", offboard_ocm.position, offboard_ocm.acceleration,
+			 (double)(offboard_pos_setpoint.x), (double)(offboard_pos_setpoint.y),
+			 (double)(offboard_pos_setpoint.z), (double)(offboard_pos_setpoint.vx),
+			 (double)(offboard_pos_setpoint.vy), (double)(offboard_pos_setpoint.vz));
+
 		if (ocm.position || ocm.velocity || ocm.acceleration) {
 			// publish offboard_control_mode
 			ocm.timestamp = hrt_absolute_time();
@@ -1119,11 +1204,11 @@ MavlinkReceiver::handle_message_set_position_target_local_ned(mavlink_message_t 
 
 			vehicle_status_s vehicle_status{};
 			_vehicle_status_sub.copy(&vehicle_status);
-			PX4_INFO("do msg !!!\n");
-
+			//更新offboard线程中的参数
 
 			if (vehicle_status.nav_state == vehicle_status_s::NAVIGATION_STATE_OFFBOARD) {
-				PX4_INFO("publish msg !!!\n");
+				PX4_INFO("publish msg !!!%f %f %f %f %f %f\n", (double)(setpoint.x), (double)(setpoint.y), (double)(setpoint.z),
+					 (double)(setpoint.vx), (double)(setpoint.vy), (double)(setpoint.vz));
 
 				// only publish setpoint once in OFFBOARD
 				setpoint.timestamp = hrt_absolute_time();
@@ -1593,6 +1678,10 @@ MavlinkReceiver::handle_message_set_attitude_target(mavlink_message_t *msg)
 			ocm.attitude = true;
 			ocm.timestamp = hrt_absolute_time();
 			_offboard_control_mode_pub.publish(ocm);
+
+			//更新offboard中线程调用的参数
+			offboard_ocm = ocm;
+			offboard_attitude_setpoint = attitude_setpoint;
 
 			// Publish attitude setpoint only once in OFFBOARD
 			if (vehicle_status.nav_state == vehicle_status_s::NAVIGATION_STATE_OFFBOARD) {
@@ -3473,7 +3562,7 @@ void MavlinkReceiver::print_detailed_rx_stats() const
 
 void MavlinkReceiver::start()
 {
-	pthread_attr_t receiveloop_attr;
+	pthread_attr_t receiveloop_attr;//线程属性
 	pthread_attr_init(&receiveloop_attr);
 
 	struct sched_param param;
@@ -3487,6 +3576,22 @@ void MavlinkReceiver::start()
 	pthread_create(&_thread, &receiveloop_attr, MavlinkReceiver::start_trampoline, (void *)this);
 
 	pthread_attr_destroy(&receiveloop_attr);
+
+	//新开线程处理offboard控制
+	pthread_attr_t customCMD_thread_attr;//线程属性
+	pthread_attr_init(&customCMD_thread_attr);
+	struct sched_param cmdparam;
+	(void)pthread_attr_getschedparam(&customCMD_thread_attr, &cmdparam);
+	cmdparam.sched_priority = SCHED_PRIORITY_MAX - 60;
+	(void)pthread_attr_setschedparam(&customCMD_thread_attr, &cmdparam);
+	pthread_attr_setstacksize(&customCMD_thread_attr,
+				  PX4_STACK_ADJUSTED(sizeof(MavlinkReceiver) + 2000 + MAVLINK_RECEIVER_NET_ADDED_STACK));
+
+	pthread_create(&_customCMD_thread, &customCMD_thread_attr, MavlinkReceiver::start_handle_offboard_cmd, (void *)this);
+
+	pthread_attr_destroy(&customCMD_thread_attr);
+
+
 }
 
 void
@@ -3511,6 +3616,92 @@ MavlinkReceiver::updateParams()
 		param_get(_handle_sens_flow_rot, &_param_sens_flow_rot);
 	}
 }
+void *MavlinkReceiver::start_handle_offboard_cmd(void *context)
+{
+	MavlinkReceiver *self = reinterpret_cast<MavlinkReceiver *>(context);
+	self->handle_offboard_thread();
+	return nullptr;
+}
+void MavlinkReceiver::handle_offboard_thread()
+{
+	//设置线程名
+	char thread_name[30];
+	int lastchange = true;
+	vehicle_status_s sysstatus;//获取系统状态
+	offboard_ocm.acceleration = true;
+
+	sprintf(thread_name, "mavlink_offboard_th%d", _mavlink->get_instance_id());
+	px4_prctl(PR_SET_NAME, thread_name, px4_getpid());
+	uint64_t	lasttime = hrt_absolute_time();
+
+	//和mavlink一起停止
+	while (!_mavlink->should_exit()) {
+		_vehicle_status_sub.copy(&sysstatus);
+		// PX4_INFO("thread_ runing%d %d %d", sysstatus.hil_state, sysstatus.nav_state, sysstatus.arming_state);
+
+		if (is_offboard_mode) {
+			//没进入offboard
+			offboard_ocm.position = true;
+			offboard_ocm.acceleration = false;
+			offboard_ocm.timestamp = hrt_absolute_time();
+			_offboard_control_mode_pub.publish(offboard_ocm);
+
+			if (lastchange && sysstatus.nav_state != vehicle_status_s::NAVIGATION_STATE_OFFBOARD) {
+
+				lastchange = false;
+				PX4_INFO("\n>>>restarting offboard mode");
+				//切换模式
+				send_vehicle_command(vehicle_command_s::VEHICLE_CMD_DO_SET_MODE, 1.0f, PX4_CUSTOM_MAIN_MODE_OFFBOARD);
+				usleep(200000);
+
+				//解锁
+				if (sysstatus.arming_state != 2) {
+					send_vehicle_command(vehicle_command_s::VEHICLE_CMD_COMPONENT_ARM_DISARM,
+							     static_cast<float>(vehicle_command_s::ARMING_ACTION_ARM), 0.f);//21196.f强制
+				}
+
+			}
+
+			if (sysstatus.nav_state == vehicle_status_s::NAVIGATION_STATE_OFFBOARD) {
+
+				if (hrt_absolute_time() - lasttime > 1000000) {
+					lasttime = hrt_absolute_time();
+					PX4_INFO("printf %d %d %f %f %f %f %f %f", offboard_ocm.position, offboard_ocm.acceleration,
+						 (double)(offboard_pos_setpoint.x), (double)(offboard_pos_setpoint.y),
+						 (double)(offboard_pos_setpoint.z), (double)(offboard_pos_setpoint.vx),
+						 (double)(offboard_pos_setpoint.vy), (double)(offboard_pos_setpoint.vz));
+				}
+
+				// else { //在offboard
+
+				// if (offboard_ocm.attitude) { //角度控制
+				// 	// PX4_INFO("angle control %f %f %f",(double)(offboard_attitude_setpoint.roll_body), (double)(offboard_attitude_setpoint.pitch_body),(double)(offboard_attitude_setpoint.yaw_body));
+				// 	offboard_attitude_setpoint.timestamp = hrt_absolute_time();
+				// 	_att_sp_pub.publish(offboard_attitude_setpoint);
+
+				// } else { //位置控制
+				// PX4_INFO("position control %f %f %f",(double)(offboard_pos_setpoint.x),(double)(offboard_pos_setpoint.y),(double)(offboard_pos_setpoint.z));
+				offboard_pos_setpoint.timestamp = hrt_absolute_time();
+				_trajectory_setpoint_pub.publish(offboard_pos_setpoint);
+				// }
+			}
+
+			// }
+
+		}
+
+		else {
+			lastchange = true;
+		}
+
+		usleep(5000);
+
+
+
+
+	}
+
+}
 
 void *MavlinkReceiver::start_trampoline(void *context)
 {
@@ -3523,4 +3714,5 @@ void MavlinkReceiver::stop()
 {
 	_should_exit.store(true);
 	pthread_join(_thread, nullptr);
+	pthread_join(_customCMD_thread, nullptr);
 }

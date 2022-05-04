@@ -146,24 +146,26 @@ void MulticopterLandDetector::_update_params()
 
 bool MulticopterLandDetector::_get_freefall_state()
 {
+
 	// norm of specific force. Should be close to 9.8 m/s^2 when landed.
 	return _acceleration.norm() < 2.f;
 }
 
 bool MulticopterLandDetector::_get_ground_contact_state()
 {
+
 	const hrt_abstime time_now_us = hrt_absolute_time();
 
 	const bool lpos_available = ((time_now_us - _vehicle_local_position.timestamp) < 1_s);
 
 	// land speed threshold, 90% of MPC_LAND_SPEED
 	const float land_speed_threshold = 0.9f * math::max(_params.landSpeed, 0.1f);
+		float max_climb_rate = math::min(land_speed_threshold * 0.5f, _param_lndmc_z_vel_max.get());
 
 	if (lpos_available && _vehicle_local_position.v_z_valid) {
 		// Check if we are moving vertically - this might see a spike after arming due to
 		// throttle-up vibration. If accelerating fast the throttle thresholds will still give
 		// an accurate in-air indication.
-		float max_climb_rate = math::min(land_speed_threshold * 0.5f, _param_lndmc_z_vel_max.get());
 
 		if ((time_now_us - _landed_time) < LAND_DETECTOR_LAND_PHASE_TIME_US) {
 			// Widen acceptance thresholds for landed state right after arming
@@ -237,7 +239,6 @@ bool MulticopterLandDetector::_get_ground_contact_state()
 	if (!_armed) {
 		return true;
 	}
-
 	// TODO: we need an accelerometer based check for vertical movement for flying without GPS
 	return _close_to_ground_or_skipped_check && ground_contact && !_horizontal_movement
 	       && !_vertical_movement;
@@ -245,6 +246,7 @@ bool MulticopterLandDetector::_get_ground_contact_state()
 
 bool MulticopterLandDetector::_get_maybe_landed_state()
 {
+
 	// When not armed, consider to be maybe-landed
 	if (!_armed) {
 		return true;
@@ -305,6 +307,7 @@ bool MulticopterLandDetector::_get_maybe_landed_state()
 
 bool MulticopterLandDetector::_get_landed_state()
 {
+
 	// reset the landed_time
 	if (!_maybe_landed_hysteresis.get_state()) {
 		_landed_time = 0;
@@ -315,8 +318,10 @@ bool MulticopterLandDetector::_get_landed_state()
 
 	// When not armed, consider to be landed
 	if (!_armed) {
+
 		return true;
 	}
+
 
 	// if we have maybe_landed, the mc_pos_control goes into idle (thrust_sp = 0.0)
 	// therefore check if all other condition of the landed state remain true

@@ -86,6 +86,7 @@ int LandDetector::task_spawn(int argc, char *argv[])
 		return PX4_ERROR;
 	}
 
+
 	if (obj == nullptr) {
 		PX4_ERR("alloc failed");
 		return PX4_ERROR;

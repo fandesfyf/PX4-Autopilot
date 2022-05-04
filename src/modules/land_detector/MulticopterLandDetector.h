@@ -50,6 +50,8 @@
 #include <uORB/topics/takeoff_status.h>
 
 #include "LandDetector.h"
+#include <systemlib/mavlink_log.h>
+#include <uORB/topics/mavlink_log.h>
 
 using namespace time_literals;
 
@@ -82,6 +84,7 @@ private:
 
 	float _get_gnd_effect_altitude();
 	bool _is_close_to_ground();
+	orb_advert_t _mavlink_log_pub{nullptr};
 
 	/** Time in us that freefall has to hold before triggering freefall */
 	static constexpr hrt_abstime FREEFALL_TRIGGER_TIME_US = 300_ms;

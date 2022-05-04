@@ -3971,16 +3971,22 @@ Commander::offboard_control_update()
 			}
 		}
 	}
-
 	if (_offboard_control_mode_sub.get().position && !_status_flags.condition_local_position_valid) {
 		offboard_available = false;
+		if (hrt_absolute_time()%200000){
+		PX4_INFO("reaon 1 %d %d",_offboard_control_mode_sub.get().position,_status_flags.condition_local_position_valid);
+		}
 
 	} else if (_offboard_control_mode_sub.get().velocity && !_status_flags.condition_local_velocity_valid) {
 		offboard_available = false;
+		PX4_INFO("reaon 2");
+
 
 	} else if (_offboard_control_mode_sub.get().acceleration && !_status_flags.condition_local_velocity_valid) {
 		// OFFBOARD acceleration handled by position controller
 		offboard_available = false;
+		PX4_INFO("reaon 3");
+
 	}
 
 	_offboard_available.set_state_and_update(offboard_available, hrt_absolute_time());
@@ -3991,6 +3997,9 @@ Commander::offboard_control_update()
 		_status_flags.offboard_control_signal_lost = offboard_lost;
 		_status_changed = true;
 	}
+
+	// PX4_INFO("offboard_available: %d %d", offboard_available, _status_flags.offboard_control_signal_lost);
+
 }
 
 void Commander::esc_status_check()

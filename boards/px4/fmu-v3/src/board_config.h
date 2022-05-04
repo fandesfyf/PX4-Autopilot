@@ -66,6 +66,7 @@
  * Definitions
  ****************************************************************************************************/
 /* Configuration ************************************************************************************/
+#define BOARD_ENABLE_CONSOLE_BUFFER
 
 /* PX4IO connection configuration */
 #define BOARD_USES_PX4IO_VERSION       2

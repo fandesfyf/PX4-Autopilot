@@ -3,7 +3,8 @@
         {
             "name": "PX4",
             "includePath": [
-                "${workspaceFolder}/**"
+                "${workspaceFolder}/**",
+                "${workspaceFolder}/build/px4_fmu-v3_default"
             ],
             "defines": [],
             "macFrameworkPath": [],

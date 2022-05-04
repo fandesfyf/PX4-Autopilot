@@ -105,7 +105,6 @@ bool PositionControl::update(const float dt)
 
 	_yawspeed_sp = PX4_ISFINITE(_yawspeed_sp) ? _yawspeed_sp : 0.f;
 	_yaw_sp = PX4_ISFINITE(_yaw_sp) ? _yaw_sp : _yaw; // TODO: better way to disable yaw control
-
 	return valid && _updateSuccessful();
 }
 

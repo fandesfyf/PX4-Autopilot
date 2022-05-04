@@ -452,6 +452,7 @@ Navigator::run()
 				rep->current.timestamp = hrt_absolute_time();
 
 				rep->next.valid = false;
+				PX4_INFO("takeoff acknowledged");
 
 				// CMD_NAV_TAKEOFF is acknowledged by commander
 

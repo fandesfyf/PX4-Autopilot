@@ -136,7 +136,9 @@ public:
 
 private:
 	static void *start_trampoline(void *context);
+	static void *start_handle_offboard_cmd(void *context);
 	void run();
+	void handle_offboard_thread();
 
 	void acknowledge(uint8_t sysid, uint8_t compid, uint16_t command, uint8_t result, uint8_t progress = 0);
 
@@ -230,9 +232,11 @@ private:
 
 	void update_message_statistics(const mavlink_message_t &message);
 	void update_rx_stats(const mavlink_message_t &message);
+	bool is_offboard_mode=false;
 
 	px4::atomic_bool 	_should_exit{false};
 	pthread_t		_thread {};
+	pthread_t		_customCMD_thread {};
 	/**
 	 * @brief Updates optical flow parameters.
 	 */
@@ -282,6 +286,9 @@ private:
 	uint8_t _mavlink_status_last_buffer_overrun{0};
 	uint8_t _mavlink_status_last_parse_error{0};
 	uint16_t _mavlink_status_last_packet_rx_drop_count{0};
+	offboard_control_mode_s offboard_ocm{};
+	vehicle_local_position_setpoint_s offboard_pos_setpoint{};
+	vehicle_attitude_setpoint_s offboard_attitude_setpoint{};
 
 	// ORB publications
 	uORB::Publication<actuator_controls_s>			_actuator_controls_pubs[4] {ORB_ID(actuator_controls_0), ORB_ID(actuator_controls_1), ORB_ID(actuator_controls_2), ORB_ID(actuator_controls_3)};

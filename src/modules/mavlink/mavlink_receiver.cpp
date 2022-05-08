@@ -433,6 +433,7 @@ MavlinkReceiver::handle_message_custom_cmd(mavlink_message_t *msg)
 	case 3://切换模式:降落\起飞\自稳
 		switch ((int)(cmd_t.data1)) {
 		case 1://降落
+			PX4_INFO("rec cmd exit to land");
 			is_offboard_mode = false;
 			send_vehicle_command(vehicle_command_s::VEHICLE_CMD_DO_SET_MODE, 1.0f, PX4_CUSTOM_MAIN_MODE_AUTO,
 					     PX4_CUSTOM_SUB_MODE_AUTO_LAND);
@@ -1192,7 +1193,8 @@ MavlinkReceiver::handle_message_set_position_target_local_ned(mavlink_message_t 
 
 		offboard_ocm = ocm;
 		offboard_pos_setpoint = setpoint;
-		PX4_INFO("printf p%d v%d a%d| %f %f %f %f %f %f", offboard_ocm.position,offboard_ocm.velocity, offboard_ocm.acceleration,
+		PX4_INFO("rec setpos p%d v%d a%d| %f %f %f %f %f %f", offboard_ocm.position, offboard_ocm.velocity,
+			 offboard_ocm.acceleration,
 			 (double)(offboard_pos_setpoint.x), (double)(offboard_pos_setpoint.y),
 			 (double)(offboard_pos_setpoint.z), (double)(offboard_pos_setpoint.vx),
 			 (double)(offboard_pos_setpoint.vy), (double)(offboard_pos_setpoint.vz));
@@ -3637,7 +3639,12 @@ void MavlinkReceiver::handle_offboard_thread()
 	//和mavlink一起停止
 	while (!_mavlink->should_exit()) {
 		_vehicle_status_sub.copy(&sysstatus);
+
 		// PX4_INFO("thread_ runing%d %d %d", sysstatus.hil_state, sysstatus.nav_state, sysstatus.arming_state);
+		if (_land_detector_sub.updated()) {
+			_land_detector_sub.copy(&_land_detector);
+			PX4_INFO("land %d", _land_detector.landed);
+		}
 
 		if (is_offboard_mode) {
 			// offboard_ocm.position = true;
@@ -3645,61 +3652,84 @@ void MavlinkReceiver::handle_offboard_thread()
 			offboard_ocm.timestamp = hrt_absolute_time();
 			_offboard_control_mode_pub.publish(offboard_ocm);
 
-			//没进入offboard
-			if (lastchange && sysstatus.nav_state != vehicle_status_s::NAVIGATION_STATE_OFFBOARD) {
+			if (lastchange) { lastchange = false; }
 
-				lastchange = false;
+			//没进入offboard
+			if (sysstatus.nav_state != vehicle_status_s::NAVIGATION_STATE_OFFBOARD) {
+
 				PX4_INFO("\n>>>restarting offboard mode");
 				//切换模式
 				send_vehicle_command(vehicle_command_s::VEHICLE_CMD_DO_SET_MODE, 1.0f, PX4_CUSTOM_MAIN_MODE_OFFBOARD);
 				usleep(200000);
-
-				//解锁
-				if (sysstatus.arming_state != 2) {
-					send_vehicle_command(vehicle_command_s::VEHICLE_CMD_COMPONENT_ARM_DISARM,
-							     static_cast<float>(vehicle_command_s::ARMING_ACTION_ARM), 0.f);//21196.f强制
-				}
-
 			}
 
-			if (sysstatus.nav_state == vehicle_status_s::NAVIGATION_STATE_OFFBOARD) {
-
-				if (hrt_absolute_time() - lasttime > 1000000) {
-					lasttime = hrt_absolute_time();
-					PX4_INFO("printf %d %d %f %f %f %f %f %f", offboard_ocm.position, offboard_ocm.acceleration,
-						 (double)(offboard_pos_setpoint.x), (double)(offboard_pos_setpoint.y),
-						 (double)(offboard_pos_setpoint.z), (double)(offboard_pos_setpoint.vx),
-						 (double)(offboard_pos_setpoint.vy), (double)(offboard_pos_setpoint.vz));
-				}
-
-				// else { //在offboard
-
-				// if (offboard_ocm.attitude) { //角度控制
-				// 	// PX4_INFO("angle control %f %f %f",(double)(offboard_attitude_setpoint.roll_body), (double)(offboard_attitude_setpoint.pitch_body),(double)(offboard_attitude_setpoint.yaw_body));
-				// 	offboard_attitude_setpoint.timestamp = hrt_absolute_time();
-				// 	_att_sp_pub.publish(offboard_attitude_setpoint);
-
-				// } else { //位置控制
-				// PX4_INFO("position control %f %f %f",(double)(offboard_pos_setpoint.x),(double)(offboard_pos_setpoint.y),(double)(offboard_pos_setpoint.z));
-				offboard_pos_setpoint.timestamp = hrt_absolute_time();
-				_trajectory_setpoint_pub.publish(offboard_pos_setpoint);
-				// }
+			//解锁
+			if (sysstatus.arming_state != 2) {
+				send_vehicle_command(vehicle_command_s::VEHICLE_CMD_COMPONENT_ARM_DISARM,
+						     static_cast<float>(vehicle_command_s::ARMING_ACTION_ARM), 0.f);//21196.f强制
 			}
 
-			// }
+
+			// if (sysstatus.nav_state == vehicle_status_s::NAVIGATION_STATE_OFFBOARD) {
+
+			if (hrt_absolute_time() - lasttime > 1000000) {
+				lasttime = hrt_absolute_time();
+				PX4_INFO("offboardmode %d %d %d | %f %f %f %f %f %f", offboard_ocm.position, offboard_ocm.velocity,
+					 offboard_ocm.acceleration,
+					 (double)(offboard_pos_setpoint.x), (double)(offboard_pos_setpoint.y),
+					 (double)(offboard_pos_setpoint.z), (double)(offboard_pos_setpoint.vx),
+					 (double)(offboard_pos_setpoint.vy), (double)(offboard_pos_setpoint.vz));
+			}
+
+			// else { //在offboard
+
+			// if (offboard_ocm.attitude) { //角度控制
+			// 	// PX4_INFO("angle control %f %f %f",(double)(offboard_attitude_setpoint.roll_body), (double)(offboard_attitude_setpoint.pitch_body),(double)(offboard_attitude_setpoint.yaw_body));
+			// 	offboard_attitude_setpoint.timestamp = hrt_absolute_time();
+			// 	_att_sp_pub.publish(offboard_attitude_setpoint);
+
+			// } else { //位置控制
+			// PX4_INFO("position control %f %f %f",(double)(offboard_pos_setpoint.x),(double)(offboard_pos_setpoint.y),(double)(offboard_pos_setpoint.z));
+			// offboard_pos_setpoint.x=0;
+			// offboard_pos_setpoint.y=0;
+			// offboard_pos_setpoint.z=-2;
+
+			offboard_pos_setpoint.timestamp = hrt_absolute_time();
+			_trajectory_setpoint_pub.publish(offboard_pos_setpoint);
+
 
 		}
 
 		else {
 
-			if (!lastchange && sysstatus.nav_state == vehicle_status_s::NAVIGATION_STATE_OFFBOARD) {
-				PX4_INFO("exit offboard mode ");
-				send_vehicle_command(vehicle_command_s::VEHICLE_CMD_DO_SET_MODE, 1.0f, PX4_CUSTOM_MAIN_MODE_AUTO,
-						     PX4_CUSTOM_SUB_MODE_AUTO_LAND);
+			if (!_land_detector.landed && !lastchange && sysstatus.nav_state == vehicle_status_s::NAVIGATION_STATE_OFFBOARD) {
+				PX4_INFO("exiting offboard mode ");
 
 
+
+				// 	send_vehicle_command(vehicle_command_s::VEHICLE_CMD_DO_SET_MODE, 1.0f, PX4_CUSTOM_MAIN_MODE_AUTO,
+				// 			     PX4_CUSTOM_SUB_MODE_AUTO_LAND);
+				offboard_ocm.position = false;
+				offboard_ocm.velocity = true;
+				offboard_ocm.timestamp = hrt_absolute_time();
+				_offboard_control_mode_pub.publish(offboard_ocm);
+
+				offboard_pos_setpoint.x = NAN;
+				offboard_pos_setpoint.y = NAN;
+				offboard_pos_setpoint.z = NAN;
+				offboard_pos_setpoint.vx = 0;
+				offboard_pos_setpoint.vy = 0;
+				offboard_pos_setpoint.vz = 0.5;
+				offboard_pos_setpoint.timestamp = hrt_absolute_time();
+				_trajectory_setpoint_pub.publish(offboard_pos_setpoint);
+
+
+			} else {
+				usleep(100000);
+				lastchange = true;
 			}
-			lastchange = true;
+
+
 		}
 
 		usleep(100);

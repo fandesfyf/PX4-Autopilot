@@ -139,5 +139,9 @@
         "cortex-debug.openocdPath": "${env:PICO_SDK_PATH}/../openocd/src/openocd",
         "[xml]": {
                 "editor.defaultFormatter": "DotJoshJohnson.xml"
-        } // Added for rp2040
+        },
+        "ros.distro": "noetic",
+        "python.autoComplete.extraPaths": [
+                "/opt/ros/noetic/lib/python3/dist-packages"
+        ] // Added for rp2040
 }

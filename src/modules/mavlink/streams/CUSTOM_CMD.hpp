@@ -3,6 +3,7 @@
 #include <modules/mavlink/mavlink_stream.h>
 #include <uORB/SubscriptionInterval.hpp>
 #include <mavlink_types.h>
+#include <modules/mavlink/mavlink_receiver.h>
 
 #include <uORB/uORB.h>
 class MavlinkStreamCustomCMD: public MavlinkStream
@@ -56,7 +57,7 @@ private:
 
 			char s[50] = "sdfaffff";
 
-			mavlink_msg_custom_cmd_send(_mavlink->get_channel(), hrt_absolute_time(), 1,1.7, 2.8, 3.8, 4.4, 55.0,
+			mavlink_msg_custom_cmd_send(_mavlink->get_channel(), hrt_absolute_time(), is_offboard_mode,1.7, 2.8, 3.8, 4.4, 55.0,
 						    s); //利用生成器生成的mavlink_msg_vehicle_zkrt.h头文件里面的这个函数将msg（mavlink结构体）封装成mavlink消息帧并发送；
 			return true;
 		}

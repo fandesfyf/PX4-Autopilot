@@ -116,6 +116,7 @@
 #endif // !CONSTRAINED_FLASH
 
 using namespace time_literals;
+bool is_offboard_mode = false;
 
 class Mavlink;
 
@@ -232,7 +233,6 @@ private:
 
 	void update_message_statistics(const mavlink_message_t &message);
 	void update_rx_stats(const mavlink_message_t &message);
-	bool is_offboard_mode=false;
 
 	px4::atomic_bool 	_should_exit{false};
 	pthread_t		_thread {};
@@ -250,6 +250,9 @@ private:
 	MavlinkParametersManager	_parameters_manager;
 	MavlinkTimesync			_mavlink_timesync;
 	MavlinkStatustextHandler	_mavlink_statustext_handler;
+	uORB::Subscription		_land_detector_sub{ORB_ID(vehicle_land_detected)};
+	vehicle_land_detected_s	        _land_detector{};
+
 
 	mavlink_status_t		_status{}; ///< receiver status, used for mavlink_parse_char()
 

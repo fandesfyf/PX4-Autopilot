@@ -1489,10 +1489,10 @@ Mavlink::configure_streams_to_default(const char *configure_single_stream)
 	case MAVLINK_MODE_NORMAL:
 		configure_stream_local("ADSB_VEHICLE", unlimited_rate);
 		configure_stream_local("ALTITUDE", 1.0f);
-		configure_stream_local("CUSTOM_CMD", 15.0f);
+		configure_stream_local("CUSTOM_CMD", 12.0f);
 		configure_stream_local("ODOMETRY", 20.0f);
 		configure_stream_local("ATTITUDE", 20.0f);
-		configure_stream_local("ATTITUDE_TARGET", 2.0f);
+		configure_stream_local("ATTITUDE_TARGET", 10.0f);
 		configure_stream_local("BATTERY_STATUS", 0.2f);
 		configure_stream_local("CAMERA_IMAGE_CAPTURED", unlimited_rate);
 		configure_stream_local("COLLISION", unlimited_rate);

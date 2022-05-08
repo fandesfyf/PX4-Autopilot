@@ -3702,7 +3702,7 @@ void MavlinkReceiver::handle_offboard_thread()
 			lastchange = true;
 		}
 
-		usleep(100000);
+		usleep(100);
 
 
 

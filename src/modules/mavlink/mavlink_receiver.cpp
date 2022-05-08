@@ -1192,7 +1192,7 @@ MavlinkReceiver::handle_message_set_position_target_local_ned(mavlink_message_t 
 
 		offboard_ocm = ocm;
 		offboard_pos_setpoint = setpoint;
-		PX4_INFO("printf %d %d %f %f %f %f %f %f", offboard_ocm.position, offboard_ocm.acceleration,
+		PX4_INFO("printf p%d v%d a%d| %f %f %f %f %f %f", offboard_ocm.position,offboard_ocm.velocity, offboard_ocm.acceleration,
 			 (double)(offboard_pos_setpoint.x), (double)(offboard_pos_setpoint.y),
 			 (double)(offboard_pos_setpoint.z), (double)(offboard_pos_setpoint.vx),
 			 (double)(offboard_pos_setpoint.vy), (double)(offboard_pos_setpoint.vz));
@@ -3628,7 +3628,7 @@ void MavlinkReceiver::handle_offboard_thread()
 	char thread_name[30];
 	int lastchange = true;
 	vehicle_status_s sysstatus;//获取系统状态
-	offboard_ocm.acceleration = true;
+	offboard_ocm.position = true;
 
 	sprintf(thread_name, "mavlink_offboard_th%d", _mavlink->get_instance_id());
 	px4_prctl(PR_SET_NAME, thread_name, px4_getpid());
@@ -3640,12 +3640,12 @@ void MavlinkReceiver::handle_offboard_thread()
 		// PX4_INFO("thread_ runing%d %d %d", sysstatus.hil_state, sysstatus.nav_state, sysstatus.arming_state);
 
 		if (is_offboard_mode) {
-			//没进入offboard
-			offboard_ocm.position = true;
-			offboard_ocm.acceleration = false;
+			// offboard_ocm.position = true;
+			// offboard_ocm.acceleration = false;
 			offboard_ocm.timestamp = hrt_absolute_time();
 			_offboard_control_mode_pub.publish(offboard_ocm);
 
+			//没进入offboard
 			if (lastchange && sysstatus.nav_state != vehicle_status_s::NAVIGATION_STATE_OFFBOARD) {
 
 				lastchange = false;
@@ -3691,10 +3691,18 @@ void MavlinkReceiver::handle_offboard_thread()
 		}
 
 		else {
+
+			if (!lastchange && sysstatus.nav_state == vehicle_status_s::NAVIGATION_STATE_OFFBOARD) {
+				PX4_INFO("exit offboard mode ");
+				send_vehicle_command(vehicle_command_s::VEHICLE_CMD_DO_SET_MODE, 1.0f, PX4_CUSTOM_MAIN_MODE_AUTO,
+						     PX4_CUSTOM_SUB_MODE_AUTO_LAND);
+
+
+			}
 			lastchange = true;
 		}
 
-		usleep(5000);
+		usleep(100000);
 
 
 

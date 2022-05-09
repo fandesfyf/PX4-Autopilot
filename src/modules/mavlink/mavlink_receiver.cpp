@@ -435,15 +435,18 @@ MavlinkReceiver::handle_message_custom_cmd(mavlink_message_t *msg)
 		case 1://降落
 			PX4_INFO("rec cmd exit to land");
 			is_offboard_mode = false;
-			send_vehicle_command(vehicle_command_s::VEHICLE_CMD_DO_SET_MODE, 1.0f, PX4_CUSTOM_MAIN_MODE_AUTO,
-					     PX4_CUSTOM_SUB_MODE_AUTO_LAND);
+			// send_vehicle_command(vehicle_command_s::VEHICLE_CMD_DO_SET_MODE, 1.0f, PX4_CUSTOM_MAIN_MODE_AUTO,
+			// 		     PX4_CUSTOM_SUB_MODE_AUTO_LAND);
 			break;
 
 		case 2://起飞
-			send_vehicle_command(vehicle_command_s::VEHICLE_CMD_NAV_TAKEOFF);
-			send_vehicle_command(vehicle_command_s::VEHICLE_CMD_COMPONENT_ARM_DISARM,
-					     static_cast<float>(vehicle_command_s::ARMING_ACTION_ARM),
-					     0.f);
+			offboard_ocm.position = true;
+			offboard_ocm.velocity = false;
+			offboard_ocm.acceleration = false;
+			offboard_pos_setpoint.x = 0;
+			offboard_pos_setpoint.y = 0;
+			offboard_pos_setpoint.z = -2;
+			is_offboard_mode = true;
 			break;
 
 		default:
@@ -3628,31 +3631,31 @@ void MavlinkReceiver::handle_offboard_thread()
 {
 	//设置线程名
 	char thread_name[30];
-	int lastchange = true;
+	int wating_land = true;
 	vehicle_status_s sysstatus;//获取系统状态
 	offboard_ocm.position = true;
 
+
 	sprintf(thread_name, "mavlink_offboard_th%d", _mavlink->get_instance_id());
 	px4_prctl(PR_SET_NAME, thread_name, px4_getpid());
-	uint64_t	lasttime = hrt_absolute_time();
+	uint64_t lasttime = hrt_absolute_time();
 
 	//和mavlink一起停止
 	while (!_mavlink->should_exit()) {
 		_vehicle_status_sub.copy(&sysstatus);
 
 		// PX4_INFO("thread_ runing%d %d %d", sysstatus.hil_state, sysstatus.nav_state, sysstatus.arming_state);
-		if (_land_detector_sub.updated()) {
-			_land_detector_sub.copy(&_land_detector);
-			PX4_INFO("land %d", _land_detector.landed);
-		}
+
 
 		if (is_offboard_mode) {
+
+
 			// offboard_ocm.position = true;
 			// offboard_ocm.acceleration = false;
 			offboard_ocm.timestamp = hrt_absolute_time();
 			_offboard_control_mode_pub.publish(offboard_ocm);
 
-			if (lastchange) { lastchange = false; }
+			if (wating_land) { wating_land = false; }
 
 			//没进入offboard
 			if (sysstatus.nav_state != vehicle_status_s::NAVIGATION_STATE_OFFBOARD) {
@@ -3681,34 +3684,52 @@ void MavlinkReceiver::handle_offboard_thread()
 					 (double)(offboard_pos_setpoint.vy), (double)(offboard_pos_setpoint.vz));
 			}
 
-			// else { //在offboard
 
-			// if (offboard_ocm.attitude) { //角度控制
-			// 	// PX4_INFO("angle control %f %f %f",(double)(offboard_attitude_setpoint.roll_body), (double)(offboard_attitude_setpoint.pitch_body),(double)(offboard_attitude_setpoint.yaw_body));
-			// 	offboard_attitude_setpoint.timestamp = hrt_absolute_time();
-			// 	_att_sp_pub.publish(offboard_attitude_setpoint);
 
-			// } else { //位置控制
-			// PX4_INFO("position control %f %f %f",(double)(offboard_pos_setpoint.x),(double)(offboard_pos_setpoint.y),(double)(offboard_pos_setpoint.z));
-			// offboard_pos_setpoint.x=0;
-			// offboard_pos_setpoint.y=0;
-			// offboard_pos_setpoint.z=-2;
+			if (offboard_ocm.attitude) { //角度控制
+				PX4_INFO("attitude control %f %f %f", (double)(offboard_attitude_setpoint.roll_body),
+					 (double)(offboard_attitude_setpoint.pitch_body), (double)(offboard_attitude_setpoint.yaw_body));
+				offboard_attitude_setpoint.timestamp = hrt_absolute_time();
+				_att_sp_pub.publish(offboard_attitude_setpoint);
 
-			offboard_pos_setpoint.timestamp = hrt_absolute_time();
-			_trajectory_setpoint_pub.publish(offboard_pos_setpoint);
+			} else {
+
+				if (offboard_ocm.position) { //位置控制
+					PX4_INFO("position control %f %f %f", (double)(offboard_pos_setpoint.x), (double)(offboard_pos_setpoint.y),
+						 (double)(offboard_pos_setpoint.z));
+
+
+				} else { //速度控制
+					PX4_INFO("vcc control %f %f %f", (double)(offboard_pos_setpoint.vx), (double)(offboard_pos_setpoint.vy),
+						 (double)(offboard_pos_setpoint.vz));
+
+				}
+
+				offboard_pos_setpoint.timestamp = hrt_absolute_time();
+				_trajectory_setpoint_pub.publish(offboard_pos_setpoint);
+			}
+
+
 
 
 		}
 
 		else {
 
-			if (!_land_detector.landed && !lastchange && sysstatus.nav_state == vehicle_status_s::NAVIGATION_STATE_OFFBOARD) {
-				PX4_INFO("exiting offboard mode ");
+			if (sysstatus.nav_state == vehicle_status_s::NAVIGATION_STATE_OFFBOARD) {
+				//更新状态
+				if (_land_detector_sub.updated()) {
+					_land_detector_sub.copy(&_land_detector);
+					PX4_INFO("land %d %d %d", _land_detector.close_to_ground_or_skipped_check, _land_detector.vertical_movement,
+						 _land_detector.horizontal_movement);
+				}
+
+				if (!wating_land || _land_detector.vertical_movement ) { wating_land = true; lasttime = hrt_absolute_time(); }
 
 
+				// PX4_INFO("exiting offboard mode ");
 
-				// 	send_vehicle_command(vehicle_command_s::VEHICLE_CMD_DO_SET_MODE, 1.0f, PX4_CUSTOM_MAIN_MODE_AUTO,
-				// 			     PX4_CUSTOM_SUB_MODE_AUTO_LAND);
+
 				offboard_ocm.position = false;
 				offboard_ocm.velocity = true;
 				offboard_ocm.timestamp = hrt_absolute_time();
@@ -3719,14 +3740,32 @@ void MavlinkReceiver::handle_offboard_thread()
 				offboard_pos_setpoint.z = NAN;
 				offboard_pos_setpoint.vx = 0;
 				offboard_pos_setpoint.vy = 0;
-				offboard_pos_setpoint.vz = 0.5;
+				offboard_pos_setpoint.vz = 0.3;
 				offboard_pos_setpoint.timestamp = hrt_absolute_time();
 				_trajectory_setpoint_pub.publish(offboard_pos_setpoint);
 
+				//can exit
+				if (hrt_absolute_time() - lasttime > 5000000 && !_land_detector.vertical_movement) {
+					PX4_INFO("\n\n>>>exit and change to stablize!!");
+					send_vehicle_command(vehicle_command_s::VEHICLE_CMD_COMPONENT_ARM_DISARM,
+							     static_cast<float>(vehicle_command_s::ARMING_ACTION_DISARM), 21196.f);//21196.f强制
+					usleep(100000);
+					send_vehicle_command(vehicle_command_s::VEHICLE_CMD_DO_SET_MODE, 1.0f, PX4_CUSTOM_MAIN_MODE_STABILIZED);
+
+				}
+
 
 			} else {
+				offboard_ocm.position = false;
+				offboard_ocm.velocity = true;
+				offboard_pos_setpoint.x = NAN;
+				offboard_pos_setpoint.y = NAN;
+				offboard_pos_setpoint.z = NAN;
+				offboard_pos_setpoint.vx = 0;
+				offboard_pos_setpoint.vy = 0;
+				offboard_pos_setpoint.vz = 0;
 				usleep(100000);
-				lastchange = true;
+
 			}
 
 

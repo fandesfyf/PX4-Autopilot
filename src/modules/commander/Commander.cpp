@@ -2591,7 +2591,7 @@ Commander::run()
 
 			if (_cmd_sub.copy(&cmd)) {
 				if (_cmd_sub.get_last_generation() != last_generation + 1) {
-					PX4_ERR("vehicle_command lost, generation %u -> %u", last_generation, _cmd_sub.get_last_generation());
+					PX4_ERR("3vehicle_command lost, generation %u -> %u", last_generation, _cmd_sub.get_last_generation());
 				}
 
 				if (handle_command(cmd)) {

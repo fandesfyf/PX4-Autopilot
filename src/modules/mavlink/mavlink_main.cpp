@@ -2326,7 +2326,7 @@ Mavlink::task_main(int argc, char *argv[])//实例任务开始
 
 				if (_vehicle_command_sub.update(&vehicle_cmd)) {
 					if (_vehicle_command_sub.get_last_generation() != last_generation + 1) {
-						PX4_ERR("vehicle_command lost, generation %u -> %u", last_generation, _vehicle_command_sub.get_last_generation());
+						PX4_ERR("2vehicle_command lost, generation %u -> %u", last_generation, _vehicle_command_sub.get_last_generation());
 					}
 
 					if ((vehicle_cmd.command == vehicle_command_s::VEHICLE_CMD_CONTROL_HIGH_LATENCY) &&

@@ -3633,7 +3633,7 @@ void MavlinkReceiver::handle_offboard_thread()
 	char thread_name[30];
 	int wating_land = true;
 	vehicle_status_s sysstatus;//获取系统状态
-	offboard_ocm.position = true;
+	offboard_ocm.velocity = true;
 
 
 	sprintf(thread_name, "mavlink_offboard_th%d", _mavlink->get_instance_id());
@@ -3687,23 +3687,23 @@ void MavlinkReceiver::handle_offboard_thread()
 
 
 			if (offboard_ocm.attitude) { //角度控制
-				PX4_INFO("attitude control %f %f %f", (double)(offboard_attitude_setpoint.roll_body),
-					 (double)(offboard_attitude_setpoint.pitch_body), (double)(offboard_attitude_setpoint.yaw_body));
+				// PX4_INFO("attitude control %f %f %f", (double)(offboard_attitude_setpoint.roll_body),
+				// 	 (double)(offboard_attitude_setpoint.pitch_body), (double)(offboard_attitude_setpoint.yaw_body));
 				offboard_attitude_setpoint.timestamp = hrt_absolute_time();
 				_att_sp_pub.publish(offboard_attitude_setpoint);
 
 			} else {
 
-				if (offboard_ocm.position) { //位置控制
-					PX4_INFO("position control %f %f %f", (double)(offboard_pos_setpoint.x), (double)(offboard_pos_setpoint.y),
-						 (double)(offboard_pos_setpoint.z));
+				// if (offboard_ocm.position) { //位置控制
+				// 	PX4_INFO("position control %f %f %f", (double)(offboard_pos_setpoint.x), (double)(offboard_pos_setpoint.y),
+				// 		 (double)(offboard_pos_setpoint.z));
 
 
-				} else { //速度控制
-					PX4_INFO("vcc control %f %f %f", (double)(offboard_pos_setpoint.vx), (double)(offboard_pos_setpoint.vy),
-						 (double)(offboard_pos_setpoint.vz));
+				// } else { //速度控制
+				// 	PX4_INFO("vcc control %f %f %f", (double)(offboard_pos_setpoint.vx), (double)(offboard_pos_setpoint.vy),
+				// 		 (double)(offboard_pos_setpoint.vz));
 
-				}
+				// }
 
 				offboard_pos_setpoint.timestamp = hrt_absolute_time();
 				_trajectory_setpoint_pub.publish(offboard_pos_setpoint);

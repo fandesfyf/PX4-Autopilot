@@ -411,7 +411,7 @@ MavlinkReceiver::handle_message_custom_cmd(mavlink_message_t *msg)
 	mavlink_custom_cmd_t cmd_t;
 	mavlink_msg_custom_cmd_decode(msg, &cmd_t);
 
-	PX4_INFO("get cmd msg %d %f", cmd_t.cmd, (double)(cmd_t.data1));
+	// PX4_INFO("get cmd msg %d %f", cmd_t.cmd, (double)(cmd_t.data1));
 
 	switch (cmd_t.cmd) {
 	case 0://正常模式,进入offboard mode
@@ -441,17 +441,20 @@ MavlinkReceiver::handle_message_custom_cmd(mavlink_message_t *msg)
 
 		case 2://起飞
 			offboard_ocm.position = true;
-			offboard_ocm.velocity = false;
+			offboard_ocm.velocity = true;
 			offboard_ocm.acceleration = false;
 			offboard_pos_setpoint.x = 0;
 			offboard_pos_setpoint.y = 0;
-			offboard_pos_setpoint.z = -2;
+			offboard_pos_setpoint.z = cmd_t.data2;
+			offboard_pos_setpoint.vx = 0;
+			offboard_pos_setpoint.vy = 0;
+			offboard_pos_setpoint.vz = -1;
 			is_offboard_mode = true;
 			break;
 
 		default:
 			is_offboard_mode = false;
-			send_vehicle_command(vehicle_command_s::VEHICLE_CMD_DO_SET_MODE, 1.0f, PX4_CUSTOM_MAIN_MODE_STABILIZED);
+			send_vehicle_command(vehicle_command_s::VEHICLE_CMD_DO_SET_MODE, 1.0f, PX4_CUSTOM_MAIN_MODE_POSCTL);
 			break;
 		}
 
@@ -3595,8 +3598,6 @@ void MavlinkReceiver::start()
 	pthread_create(&_customCMD_thread, &customCMD_thread_attr, MavlinkReceiver::start_handle_offboard_cmd, (void *)this);
 
 	pthread_attr_destroy(&customCMD_thread_attr);
-
-
 }
 
 void
@@ -3627,6 +3628,48 @@ void *MavlinkReceiver::start_handle_offboard_cmd(void *context)
 	self->handle_offboard_thread();
 	return nullptr;
 }
+void MavlinkReceiver::update_thrust()
+{
+
+	hrt_abstime _last_att_sp_update{0};
+
+	vehicle_attitude_setpoint_s att_sp;
+
+	bool updated = false;
+
+	if (_att_sp_sub.update(&att_sp)) {
+		_last_att_sp_update = att_sp.timestamp;
+		updated = true;
+
+	} else if (hrt_elapsed_time(&_last_att_sp_update) > 500_ms) {
+		if (!_att_sp_sub.copy(&att_sp)) {
+			att_sp = {};
+		}
+
+		updated = _att_rates_sp_sub.updated();
+	}
+
+	if (updated) {
+
+		target_t.time_boot_ms = att_sp.timestamp / 1000;
+		matrix::Quatf(att_sp.q_d).copyTo(target_t.q);
+
+		vehicle_rates_setpoint_s att_rates_sp{};
+		_att_rates_sp_sub.copy(&att_rates_sp);
+
+		target_t.body_roll_rate = att_rates_sp.roll;
+		target_t.body_pitch_rate = att_rates_sp.pitch;
+		target_t.body_yaw_rate = att_rates_sp.yaw;
+
+		target_t.thrust = matrix::Vector3f(att_sp.thrust_body).norm();
+		// PX4_INFO("THRUST: %f",(double)target_t.thrust);
+
+	}
+
+
+
+
+}
 void MavlinkReceiver::handle_offboard_thread()
 {
 	//设置线程名
@@ -3639,28 +3682,41 @@ void MavlinkReceiver::handle_offboard_thread()
 	sprintf(thread_name, "mavlink_offboard_th%d", _mavlink->get_instance_id());
 	px4_prctl(PR_SET_NAME, thread_name, px4_getpid());
 	uint64_t lasttime = hrt_absolute_time();
+	struct offboard_cmd_s offboard_cmd_date;//发送出去的offboardcmd
+	memset(&offboard_cmd_date, 0, sizeof(offboard_cmd_date));
+	orb_advert_t offboard_cmd_pub = orb_advertise(ORB_ID(offboard_cmd), &offboard_cmd_date);
+
+	//位置订阅
+	uORB::Subscription _lpos_sub{ORB_ID(vehicle_local_position)};
+	vehicle_local_position_s lpos;
 
 	//和mavlink一起停止
 	while (!_mavlink->should_exit()) {
 		_vehicle_status_sub.copy(&sysstatus);
 
+		//更新位置
+		if (_lpos_sub.update(&lpos)) {
+		}
+
 		// PX4_INFO("thread_ runing%d %d %d", sysstatus.hil_state, sysstatus.nav_state, sysstatus.arming_state);
-
-
 		if (is_offboard_mode) {
-
-
 			// offboard_ocm.position = true;
 			// offboard_ocm.acceleration = false;
 			offboard_ocm.timestamp = hrt_absolute_time();
 			_offboard_control_mode_pub.publish(offboard_ocm);
 
+			//uorb消息发布
+			offboard_cmd_date.timestamp = hrt_absolute_time();
+			offboard_cmd_date.is_offboard = 1;
+
 			if (wating_land) { wating_land = false; }
 
 			//没进入offboard
 			if (sysstatus.nav_state != vehicle_status_s::NAVIGATION_STATE_OFFBOARD) {
+				if (hrt_absolute_time() - lasttime > 999889) {
+					PX4_INFO("\n>>>restarting offboard mode");
+				}
 
-				PX4_INFO("\n>>>restarting offboard mode");
 				//切换模式
 				send_vehicle_command(vehicle_command_s::VEHICLE_CMD_DO_SET_MODE, 1.0f, PX4_CUSTOM_MAIN_MODE_OFFBOARD);
 				usleep(200000);
@@ -3710,11 +3766,11 @@ void MavlinkReceiver::handle_offboard_thread()
 			}
 
 
+		} else {//非offboard
 
-
-		}
-
-		else {
+			//uorb消息发布
+			offboard_cmd_date.timestamp = hrt_absolute_time();
+			offboard_cmd_date.is_offboard = 0;
 
 			if (sysstatus.nav_state == vehicle_status_s::NAVIGATION_STATE_OFFBOARD) {
 				//更新状态
@@ -3724,7 +3780,9 @@ void MavlinkReceiver::handle_offboard_thread()
 						 _land_detector.horizontal_movement);
 				}
 
-				if (!wating_land || _land_detector.vertical_movement ) { wating_land = true; lasttime = hrt_absolute_time(); }
+				update_thrust();
+
+				if (!wating_land || _land_detector.vertical_movement) { wating_land = true; lasttime = hrt_absolute_time(); }
 
 
 				// PX4_INFO("exiting offboard mode ");
@@ -3740,17 +3798,18 @@ void MavlinkReceiver::handle_offboard_thread()
 				offboard_pos_setpoint.z = NAN;
 				offboard_pos_setpoint.vx = 0;
 				offboard_pos_setpoint.vy = 0;
-				offboard_pos_setpoint.vz = 0.3;
+				offboard_pos_setpoint.vz = 0.4;
 				offboard_pos_setpoint.timestamp = hrt_absolute_time();
 				_trajectory_setpoint_pub.publish(offboard_pos_setpoint);
 
 				//can exit
-				if (hrt_absolute_time() - lasttime > 5000000 && !_land_detector.vertical_movement) {
+				if ((double)target_t.thrust < 0.15  && hrt_absolute_time() - lasttime > 10000000 && (fabs(lpos.vx) < 0.1
+						&& fabs(lpos.vy) <  0.1 && fabs(lpos.vz) < 0.1) && !_land_detector.vertical_movement) {
 					PX4_INFO("\n\n>>>exit and change to stablize!!");
 					send_vehicle_command(vehicle_command_s::VEHICLE_CMD_COMPONENT_ARM_DISARM,
 							     static_cast<float>(vehicle_command_s::ARMING_ACTION_DISARM), 21196.f);//21196.f强制
 					usleep(100000);
-					send_vehicle_command(vehicle_command_s::VEHICLE_CMD_DO_SET_MODE, 1.0f, PX4_CUSTOM_MAIN_MODE_STABILIZED);
+					send_vehicle_command(vehicle_command_s::VEHICLE_CMD_DO_SET_MODE, 1.0f, PX4_CUSTOM_MAIN_MODE_POSCTL);
 
 				}
 
@@ -3764,14 +3823,15 @@ void MavlinkReceiver::handle_offboard_thread()
 				offboard_pos_setpoint.vx = 0;
 				offboard_pos_setpoint.vy = 0;
 				offboard_pos_setpoint.vz = 0;
-				usleep(100000);
+				usleep(1000);
 
 			}
 
 
 		}
 
-		usleep(100);
+		orb_publish(ORB_ID(offboard_cmd), offboard_cmd_pub, &offboard_cmd_date);
+		usleep(1000);
 
 
 

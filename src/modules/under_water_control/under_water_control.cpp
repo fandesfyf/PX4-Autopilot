@@ -7,16 +7,18 @@
 #include <poll.h>
 #include <string.h>
 #include <math.h>
-
+#include <drivers/drv_pwm_output.h>
 #include <uORB/uORB.h>
 #include <uORB/topics/vehicle_acceleration.h>
 #include <uORB/topics/vehicle_attitude.h>
 
-__EXPORT int px4_simple_app_main(int argc, char *argv[]);
+extern "C" __EXPORT int under_water_control_main(int argc, char *argv[]);
 
-int px4_simple_app_main(int argc, char *argv[])
+int under_water_control_main(int argc, char *argv[])
 {
 	PX4_INFO("Hello Sky!hhhh");
+	up_pwm_servo_set( 0, 1800);
+
 
 	/* subscribe to vehicle_acceleration topic */
 	int sensor_sub_fd = orb_subscribe(ORB_ID(vehicle_acceleration));

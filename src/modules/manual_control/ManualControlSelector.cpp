@@ -64,6 +64,26 @@ void ManualControlSelector::updateWithNewInputSample(uint64_t now, const manual_
 
 bool ManualControlSelector::isInputValid(const manual_control_setpoint_s &input, uint64_t now) const
 {
+	/* wait blocking for new data */
+	px4_pollfd_struct_t fds[1];
+	fds[0].fd = offboard_cmd_sub;
+	fds[0].events = POLLIN;
+	int pull_ret = px4_poll(fds, 1, 1000);
+	struct offboard_cmd_s offboard_cmd_rec;
+
+	if (pull_ret) {
+		orb_copy(ORB_ID(offboard_cmd), offboard_cmd_sub, &offboard_cmd_rec);
+
+		if (offboard_cmd_rec.is_offboard) {
+			return true;
+		}
+		return true;
+
+	} else {
+		PX4_INFO("RESET MANUE TO TRUE ");
+		return true;
+	}
+
 	// Check for timeout
 	const bool sample_from_the_past = now >= input.timestamp_sample;
 	const bool sample_newer_than_timeout = now - input.timestamp_sample < _timeout;

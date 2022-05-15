@@ -1,0 +1,5 @@
+menuconfig  MODULES_UNDER_WATER_CONTROL
+	bool "under water control"
+	default n
+	---help---
+		Enable support for under_water_control

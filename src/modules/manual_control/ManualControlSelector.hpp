@@ -35,6 +35,8 @@
 
 #include <stdint.h>
 #include <uORB/topics/manual_control_setpoint.h>
+#include <uORB/topics/offboard_cmd.h>
+#include <px4_platform_common/posix.h>
 
 class ManualControlSelector
 {
@@ -47,6 +49,7 @@ public:
 	int instance() const { return _instance; };
 
 private:
+	int offboard_cmd_sub=orb_subscribe(ORB_ID(offboard_cmd));
 	bool isInputValid(const manual_control_setpoint_s &input, uint64_t now) const;
 
 	manual_control_setpoint_s _setpoint{};

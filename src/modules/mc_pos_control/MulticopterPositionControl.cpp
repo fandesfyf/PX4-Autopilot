@@ -454,21 +454,22 @@ void MulticopterPositionControl::Run()
 
 			} else {
 				// Failsafe
-				if ((time_stamp_now - _last_warn) > 2_s) {
-					PX4_WARN("invalid setpoints");
+				if ((time_stamp_now - _last_warn) > 5_s) {
+					PX4_WARN("invalid setpoints %d",was_in_failsafe);
 					_last_warn = time_stamp_now;
+
 				}
 
-				vehicle_local_position_setpoint_s failsafe_setpoint{};
+				// vehicle_local_position_setpoint_s failsafe_setpoint{};
 
-				failsafe(time_stamp_now, failsafe_setpoint, states, !was_in_failsafe);
+				// failsafe(time_stamp_now, failsafe_setpoint, states, !was_in_failsafe);
 
-				// reset constraints
-				_vehicle_constraints = {0, NAN, NAN, false, {}};
+				// // reset constraints
+				// _vehicle_constraints = {0, NAN, NAN, false, {}};
 
-				_control.setInputSetpoint(failsafe_setpoint);
-				_control.setVelocityLimits(_param_mpc_xy_vel_max.get(), _param_mpc_z_vel_max_up.get(), _param_mpc_z_vel_max_dn.get());
-				_control.update(dt);
+				// _control.setInputSetpoint(failsafe_setpoint);
+				// _control.setVelocityLimits(_param_mpc_xy_vel_max.get(), _param_mpc_z_vel_max_up.get(), _param_mpc_z_vel_max_dn.get());
+				// _control.update(dt);
 			}
 
 			// Publish internal position control setpoints

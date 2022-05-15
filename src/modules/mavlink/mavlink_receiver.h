@@ -107,6 +107,10 @@
 #include <uORB/topics/vehicle_status.h>
 #include <uORB/topics/vehicle_trajectory_bezier.h>
 #include <uORB/topics/vehicle_trajectory_waypoint.h>
+#include <uORB/topics/offboard_cmd.h>
+// #include <uORB/topics/uORBTopics.hpp>
+// #include <uORB/topics/vehicle_odometry.h>
+#include <uORB/topics/vehicle_local_position.h>
 
 #if !defined(CONSTRAINED_FLASH)
 # include <uORB/topics/debug_array.h>
@@ -117,8 +121,7 @@
 
 using namespace time_literals;
 bool is_offboard_mode = false;
-int offboard_status=0;//0 controling 1 autotakeoff
-
+int offboard_status = 0; //0 controling 1 autotakeoff
 class Mavlink;
 
 class MavlinkReceiver : public ModuleParams
@@ -140,6 +143,7 @@ private:
 	static void *start_trampoline(void *context);
 	static void *start_handle_offboard_cmd(void *context);
 	void run();
+	void update_thrust();
 	void handle_offboard_thread();
 
 	void acknowledge(uint8_t sysid, uint8_t compid, uint16_t command, uint8_t result, uint8_t progress = 0);
@@ -291,6 +295,11 @@ private:
 	uint8_t _mavlink_status_last_parse_error{0};
 	uint16_t _mavlink_status_last_packet_rx_drop_count{0};
 	offboard_control_mode_s offboard_ocm{};
+
+	mavlink_attitude_target_t target_t{};//include the thrust
+	uORB::Subscription _att_sp_sub{ORB_ID(vehicle_attitude_setpoint)};
+	uORB::Subscription _att_rates_sp_sub{ORB_ID(vehicle_rates_setpoint)};
+
 	vehicle_local_position_setpoint_s offboard_pos_setpoint{};
 	vehicle_attitude_setpoint_s offboard_attitude_setpoint{};
 

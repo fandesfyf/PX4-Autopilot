@@ -452,6 +452,9 @@ static void enable_failsafe(vehicle_status_s &status, bool old_failsafe, orb_adv
 		}
 
 		const char *reason = "";
+		PX4_INFO(">>>in failsafe %d %d %d",event_failsafe_reason==event_failsafe_reason_t::no_offboard,
+		event_failsafe_reason==event_failsafe_reason_t::no_rc,
+		event_failsafe_reason==event_failsafe_reason_t::no_datalink);
 
 		switch (event_failsafe_reason) {
 		case event_failsafe_reason_t::no_rc: reason = reason_no_rc; break;

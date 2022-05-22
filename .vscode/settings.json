@@ -146,5 +146,8 @@
         ],
         "python.analysis.extraPaths": [
                 "/opt/ros/noetic/lib/python3/dist-packages"
-        ] // Added for rp2040
+        ],
+        "[cpp]": {
+                "editor.defaultFormatter": "chiehyu.vscode-astyle"
+        } // Added for rp2040
 }

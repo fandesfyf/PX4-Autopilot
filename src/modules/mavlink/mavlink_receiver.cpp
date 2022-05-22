@@ -43,6 +43,7 @@
 #include <lib/airspeed/airspeed.h>
 #include <lib/conversion/rotation.h>
 #include <lib/systemlib/px4_macros.h>
+#include <drivers/drv_pwm_output.h>
 
 #include <math.h>
 #include <poll.h>
@@ -3689,14 +3690,18 @@ void MavlinkReceiver::handle_offboard_thread()
 	//位置订阅
 	uORB::Subscription _lpos_sub{ORB_ID(vehicle_local_position)};
 	vehicle_local_position_s lpos;
-
+	// up_pwm_servo_set( 0, 1800);
+	// up_pwm_servo_set( 1, 1500);
+	// up_pwm_servo_set( 2, 2000);
+	// up_pwm_servo_set( 3, 1800);
+	// up_pwm_servo_set( 4, 1500);
+	// up_pwm_servo_set( 5, 2000);
 	//和mavlink一起停止
 	while (!_mavlink->should_exit()) {
 		_vehicle_status_sub.copy(&sysstatus);
 
 		//更新位置
-		if (_lpos_sub.update(&lpos)) {
-		}
+		_lpos_sub.update(&lpos);
 
 		// PX4_INFO("thread_ runing%d %d %d", sysstatus.hil_state, sysstatus.nav_state, sysstatus.arming_state);
 		if (is_offboard_mode) {

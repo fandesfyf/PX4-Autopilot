@@ -4,7 +4,7 @@
 #include <uORB/SubscriptionInterval.hpp>
 #include <mavlink_types.h>
 #include <modules/mavlink/mavlink_receiver.h>
-
+#include <uORB/topics/under_water_control_status.h>
 #include <uORB/uORB.h>
 class MavlinkStreamCustomCMD: public MavlinkStream
 {
@@ -41,28 +41,26 @@ public:
 private:
 
 	explicit MavlinkStreamCustomCMD(Mavlink *mavlink) : MavlinkStream(mavlink) {}
-
+	uORB::Subscription uwc_status_sub{ORB_ID(under_water_control_status)};
+	under_water_control_status_s uwc_data;
 	bool send() override //用于PX4真正发送的函数
 	{
 
 		// struct vehicle_zkrt_s _vehicle_zkrt;    //定义uorb消息结构体
 
-		if (true) {
 
-			//int sensor_sub_fd = orb_subscribe(ORB_ID(vehicle_zkrt));//订阅
-			//orb_copy(ORB_ID(vehicle_zkrt), sensor_sub_fd, &_vehicle_zkrt);//获取消息数据
+		//int sensor_sub_fd = orb_subscribe(ORB_ID(vehicle_zkrt));//订阅
+		//orb_copy(ORB_ID(vehicle_zkrt), sensor_sub_fd, &_vehicle_zkrt);//获取消息数据
 
-			// uORB::Subscription _zkrt_sub{ORB_ID(vehicle_zkrt)};//订阅
-			// _zkrt_sub.copy(&_vehicle_zkrt);//获取消息数据
+		// uORB::Subscription _zkrt_sub{ORB_ID(vehicle_zkrt)};//订阅
+		// _zkrt_sub.copy(&_vehicle_zkrt);//获取消息数据
 
-			char s[50] = "sdfaffff";
+		char s[50] = "sdfaffff";
+		uwc_status_sub.update(&uwc_data);
+		mavlink_msg_custom_cmd_send(_mavlink->get_channel(), hrt_absolute_time(), is_offboard_mode, uwc_data.temperature, uwc_data.humidity, uwc_data.pressure, 4.4, 55.0,
+					    s); //利用生成器生成的mavlink_msg_vehicle_zkrt.h头文件里面的这个函数将msg（mavlink结构体）封装成mavlink消息帧并发送；
+		return true;
 
-			mavlink_msg_custom_cmd_send(_mavlink->get_channel(), hrt_absolute_time(), is_offboard_mode,1.7, 2.8, 3.8, 4.4, 55.0,
-						    s); //利用生成器生成的mavlink_msg_vehicle_zkrt.h头文件里面的这个函数将msg（mavlink结构体）封装成mavlink消息帧并发送；
-			return true;
-		}
-
-		return false;
 	}
 
 };

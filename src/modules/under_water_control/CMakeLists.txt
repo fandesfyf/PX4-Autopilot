@@ -4,6 +4,8 @@ px4_add_module(
 	STACK_MAIN 2400
 	COMPILE_FLAGS
 	SRCS
+		uartsensor.cpp
 		under_water_control.cpp
+
 	DEPENDS
 	)

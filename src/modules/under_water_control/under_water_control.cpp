@@ -1,4 +1,3 @@
-
 #include <px4_platform_common/px4_config.h>
 #include <px4_platform_common/tasks.h>
 #include <px4_platform_common/posix.h>
@@ -7,86 +6,95 @@
 #include <poll.h>
 #include <string.h>
 #include <math.h>
+
+#include <stdio.h>
+#include <termios.h>
+#include <unistd.h>
+#include <stdbool.h>
+#include <errno.h>
+#include <drivers/drv_hrt.h>
+#include <string.h>
+#include <systemlib/err.h>
+#include <fcntl.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <uORB/topics/input_rc.h>
+#include <poll.h>
+
 #include <drivers/drv_pwm_output.h>
 #include <uORB/uORB.h>
 #include <uORB/topics/vehicle_acceleration.h>
 #include <uORB/topics/vehicle_attitude.h>
+#include <string.h>
+#include <modules/under_water_control/uartsensor.hpp>
 
 extern "C" __EXPORT int under_water_control_main(int argc, char *argv[]);
+#define RIGHT_CH 1
+#define LEFT_CH 2
+uint16_t RIGHT_PWM = 2240; //右侧正常位置pwm2240,增大后转,1600->90°,2500->-45°
+uint16_t LEFT_PWM = 755; //左侧正常位置755,增大前转,1400->90°,500->-45°
+static int daemon_task;//定义进程变量
+
 
 int under_water_control_main(int argc, char *argv[])
 {
-	PX4_INFO("Hello Sky!hhhh");
-	up_pwm_servo_set( 0, 1800);
 
+	if (argc < 2) {
 
-	/* subscribe to vehicle_acceleration topic */
-	int sensor_sub_fd = orb_subscribe(ORB_ID(vehicle_acceleration));
-	/* limit the update rate to 5 Hz */
-	orb_set_interval(sensor_sub_fd, 200);
+		usage("missing command");
+	}
+	uint16_t pwm = 0;
+	PX4_INFO("Hello!hhhh%s", argv[0]);
+	pwm = (uint16_t)atoll(argv[1]);
+	PX4_INFO("set pwm%d", pwm);
+	up_pwm_servo_set(3, pwm);
 
-	/* advertise attitude topic */
-	struct vehicle_attitude_s att;
-	memset(&att, 0, sizeof(att));
-	orb_advert_t att_pub = orb_advertise(ORB_ID(vehicle_attitude), &att);
-
-	/* one could wait for multiple topics with this technique, just using one here */
-	px4_pollfd_struct_t fds[] = {
-		{ .fd = sensor_sub_fd,   .events = POLLIN },
-		/* there could be more file descriptors here, in the form like:
-		 * { .fd = other_sub_fd,   .events = POLLIN },
-		 */
-	};
-
-	int error_counter = 0;
-
-	for (int i = 0; i < 5; i++) {
-		/* wait for sensor update of 1 file descriptor for 1000 ms (1 second) */
-		int poll_ret = px4_poll(fds, 1, 1000);
-
-		/* handle the poll result */
-		if (poll_ret == 0) {
-			/* this means none of our providers is giving us data */
-			PX4_ERR("Got no data within a second");
-
-		} else if (poll_ret < 0) {
-			/* this is seriously bad - should be an emergency */
-			if (error_counter < 10 || error_counter % 50 == 0) {
-				/* use a counter to prevent flooding (and slowing us down) */
-				PX4_ERR("ERROR return value from poll(): %d", poll_ret);
-			}
-
-			error_counter++;
-
-		} else {
-
-			if (fds[0].revents & POLLIN) {
-				/* obtained data for the first file descriptor */
-				struct vehicle_acceleration_s accel;
-				/* copy sensors raw data into local buffer */
-				orb_copy(ORB_ID(vehicle_acceleration), sensor_sub_fd, &accel);
-				PX4_INFO("Accelerometer:\t%8.4f\t%8.4f\t%8.4f",
-					 (double)accel.xyz[0],
-					 (double)accel.xyz[1],
-					 (double)accel.xyz[2]);
-
-				/* set att and publish this information for other apps
-				 the following does not have any meaning, it's just an example
-				*/
-				att.q[0] = accel.xyz[0];
-				att.q[1] = accel.xyz[1];
-				att.q[2] = accel.xyz[2];
-
-				orb_publish(ORB_ID(vehicle_attitude), att_pub, &att);
-			}
-
-			/* there could be more file descriptors here, in the form like:
-			 * if (fds[1..n].revents & POLLIN) {}
-			 */
+	up_pwm_servo_set(RIGHT_CH, RIGHT_PWM);
+	up_pwm_servo_set(LEFT_CH, LEFT_PWM);
+	//输入为start
+	if (!strcmp(argv[1], "start")) {
+		if (thread_running) {//进程在运行
+			warnx("already running\n");//打印提示已经在运行
+			return 0;//跳出代码
 		}
+
+
+		//如果是第一次运行
+		thread_should_exit = false;
+		//建立名为serv_sys_uart进程SCHED_PRIORITY_MAX - 55,
+		daemon_task = px4_task_spawn_cmd("uart_sensors_thread",
+						 SCHED_DEFAULT,
+						 SCHED_PRIORITY_DEFAULT-50,
+						 2500,
+						 uart_thread_main,
+						 (argv) ? (char *const *)&argv[2] : (char *const *)NULL);  //正常命令形式为serv_sys_uart start /dev/ttyS2
+		return 0;//跳出代码
 	}
 
-	PX4_INFO("exiting");
+	//如果是stop
+	if (!strcmp(argv[1], "stop")) {
+		PX4_INFO("to stop ");
+		thread_should_exit = true;//进程标志变量置true
+		return 0;
+	}
 
-	return 0;
+	//如果是status
+	if (!strcmp(argv[1], "status")) {
+		if (thread_running) {
+			warnx("running");
+			return 0;
+
+		} else {
+			warnx("stopped");
+			return 1;
+		}
+
+		return 0;
+	}
+
+	//若果是其他，则打印不支持该类型
+	usage("unrecognized command");
+	return 1;
+
+
 }

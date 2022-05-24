@@ -168,6 +168,7 @@ set(msg_files
 	yaw_estimator_status.msg
 	offboard_cmd.msg
 	under_water_control_status.msg
+	servor_control.msg
 )
 
 if(NOT px4_constrained_flash_build)

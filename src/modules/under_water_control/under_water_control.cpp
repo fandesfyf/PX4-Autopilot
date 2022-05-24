@@ -27,30 +27,48 @@
 #include <uORB/topics/vehicle_attitude.h>
 #include <string.h>
 #include <modules/under_water_control/uartsensor.hpp>
+#include <modules/under_water_control/servor_control.hpp>
 
 extern "C" __EXPORT int under_water_control_main(int argc, char *argv[]);
-#define RIGHT_CH 1
-#define LEFT_CH 2
-uint16_t RIGHT_PWM = 2240; //右侧正常位置pwm2240,增大后转,1600->90°,2500->-45°
-uint16_t LEFT_PWM = 755; //左侧正常位置755,增大前转,1400->90°,500->-45°
-static int daemon_task;//定义进程变量
 
+static int daemon_task;//定义进程变量
+static int servor_task;//定义进程变量
 
 int under_water_control_main(int argc, char *argv[])
 {
+
+
+	uint16_t pwm = 0;
+	PX4_INFO("Hello!hhhh%s", argv[0]);
 
 	if (argc < 2) {
 
 		usage("missing command");
 	}
-	uint16_t pwm = 0;
-	PX4_INFO("Hello!hhhh%s", argv[0]);
-	pwm = (uint16_t)atoll(argv[1]);
-	PX4_INFO("set pwm%d", pwm);
-	up_pwm_servo_set(3, pwm);
 
-	up_pwm_servo_set(RIGHT_CH, RIGHT_PWM);
-	up_pwm_servo_set(LEFT_CH, LEFT_PWM);
+	if (!strcmp(argv[1], "pwm")) {
+		if (argc == 4) {
+			PX4_INFO("set pwm%d", pwm);
+			up_pwm_servo_set((uint16_t)atoll(argv[2]), (uint16_t)atoll(argv[3]));
+
+		} else {
+			pwm = (uint16_t)atoll(argv[2]);
+			PX4_INFO("set pwm%d", pwm);
+			up_pwm_servo_set(3, pwm);
+		}
+
+	} else if (!strcmp(argv[1], "angle")) {
+		if (argc == 4) {
+			set_servor_angle((float)atoll(argv[2]), LEFT_CH);
+			set_servor_angle((float)atoll(argv[3]), RIGHT_CH);
+
+		} else { set_servor_angle((float)atoll(argv[2]), RIGHT_CH); }
+
+	} else {
+		up_pwm_servo_set(RIGHT_CH, RIGHT_PWM);
+		up_pwm_servo_set(LEFT_CH, LEFT_PWM);
+	}
+
 	//输入为start
 	if (!strcmp(argv[1], "start")) {
 		if (thread_running) {//进程在运行
@@ -64,10 +82,22 @@ int under_water_control_main(int argc, char *argv[])
 		//建立名为serv_sys_uart进程SCHED_PRIORITY_MAX - 55,
 		daemon_task = px4_task_spawn_cmd("uart_sensors_thread",
 						 SCHED_DEFAULT,
-						 SCHED_PRIORITY_DEFAULT-50,
+						 SCHED_PRIORITY_DEFAULT - 50,
 						 2500,
 						 uart_thread_main,
 						 (argv) ? (char *const *)&argv[2] : (char *const *)NULL);  //正常命令形式为serv_sys_uart start /dev/ttyS2
+
+		//启动舵机控制线程
+		if (!servor_control_thread_runnig) {
+			servor_control_thread_runnig = true;
+			servor_task = px4_task_spawn_cmd("servor_control_thread",
+							 SCHED_DEFAULT,
+							 SCHED_PRIORITY_DEFAULT,
+							 1000,
+							 servor_control_thread_start,
+							 (argv) ? (char *const *)&argv[2] : (char *const *)NULL);
+		}
+
 		return 0;//跳出代码
 	}
 
@@ -75,6 +105,7 @@ int under_water_control_main(int argc, char *argv[])
 	if (!strcmp(argv[1], "stop")) {
 		PX4_INFO("to stop ");
 		thread_should_exit = true;//进程标志变量置true
+		servor_control_thread_runnig = false;
 		return 0;
 	}
 

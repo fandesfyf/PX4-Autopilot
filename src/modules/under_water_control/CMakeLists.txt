@@ -6,6 +6,6 @@ px4_add_module(
 	SRCS
 		uartsensor.cpp
 		under_water_control.cpp
-
+		servor_control.cpp
 	DEPENDS
 	)

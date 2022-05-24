@@ -121,6 +121,7 @@
 
 using namespace time_literals;
 bool is_offboard_mode = false;
+bool is_offboard_threads_exited = false;
 int offboard_status = 0; //0 controling 1 autotakeoff
 class Mavlink;
 

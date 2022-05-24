@@ -426,6 +426,7 @@ MavlinkReceiver::handle_message_custom_cmd(mavlink_message_t *msg)
 		break;
 
 	case 2://上锁
+		is_offboard_mode = false;
 		send_vehicle_command(vehicle_command_s::VEHICLE_CMD_COMPONENT_ARM_DISARM,
 				     static_cast<float>(vehicle_command_s::ARMING_ACTION_DISARM), 21196.f);//21196.f强制
 
@@ -3586,19 +3587,21 @@ void MavlinkReceiver::start()
 
 	pthread_attr_destroy(&receiveloop_attr);
 
-	//新开线程处理offboard控制
-	pthread_attr_t customCMD_thread_attr;//线程属性
-	pthread_attr_init(&customCMD_thread_attr);
-	struct sched_param cmdparam;
-	(void)pthread_attr_getschedparam(&customCMD_thread_attr, &cmdparam);
-	cmdparam.sched_priority = SCHED_PRIORITY_MAX - 60;
-	(void)pthread_attr_setschedparam(&customCMD_thread_attr, &cmdparam);
-	pthread_attr_setstacksize(&customCMD_thread_attr,
-				  PX4_STACK_ADJUSTED(sizeof(MavlinkReceiver) + 2222 + MAVLINK_RECEIVER_NET_ADDED_STACK));
-
-	pthread_create(&_customCMD_thread, &customCMD_thread_attr, MavlinkReceiver::start_handle_offboard_cmd, (void *)this);
-
-	pthread_attr_destroy(&customCMD_thread_attr);
+	if (!is_offboard_threads_exited) {
+		PX4_INFO("is_offboard_threads starting");
+		is_offboard_threads_exited = true;
+		//新开线程处理offboard控制
+		pthread_attr_t customCMD_thread_attr;//线程属性
+		pthread_attr_init(&customCMD_thread_attr);
+		struct sched_param cmdparam;
+		(void)pthread_attr_getschedparam(&customCMD_thread_attr, &cmdparam);
+		cmdparam.sched_priority = SCHED_PRIORITY_MAX - 60;
+		(void)pthread_attr_setschedparam(&customCMD_thread_attr, &cmdparam);
+		pthread_attr_setstacksize(&customCMD_thread_attr,
+					  PX4_STACK_ADJUSTED(sizeof(MavlinkReceiver) + 2222 + MAVLINK_RECEIVER_NET_ADDED_STACK));
+		pthread_create(&_customCMD_thread, &customCMD_thread_attr, MavlinkReceiver::start_handle_offboard_cmd, (void *)this);
+		pthread_attr_destroy(&customCMD_thread_attr);
+	}
 }
 
 void
@@ -3690,6 +3693,7 @@ void MavlinkReceiver::handle_offboard_thread()
 	//位置订阅
 	uORB::Subscription _lpos_sub{ORB_ID(vehicle_local_position)};
 	vehicle_local_position_s lpos;
+
 	// up_pwm_servo_set( 0, 1800);
 	// up_pwm_servo_set( 1, 1500);
 	// up_pwm_servo_set( 2, 2000);
@@ -3808,8 +3812,8 @@ void MavlinkReceiver::handle_offboard_thread()
 				_trajectory_setpoint_pub.publish(offboard_pos_setpoint);
 
 				//can exit
-				if ((double)target_t.thrust < 0.15  && hrt_absolute_time() - lasttime > 10000000 && (fabs(lpos.vx) < 0.1
-						&& fabs(lpos.vy) <  0.1 && fabs(lpos.vz) < 0.1) && !_land_detector.vertical_movement) {
+				if ((double)target_t.thrust < 0.15  && hrt_absolute_time() - lasttime > 10000000 && (fabs(lpos.vx) < 0.5
+						&& fabs(lpos.vy) <  0.5 && fabs(lpos.vz) < 0.3) && !_land_detector.vertical_movement) {
 					PX4_INFO("\n\n>>>exit and change to stablize!!");
 					send_vehicle_command(vehicle_command_s::VEHICLE_CMD_COMPONENT_ARM_DISARM,
 							     static_cast<float>(vehicle_command_s::ARMING_ACTION_DISARM), 21196.f);//21196.f强制

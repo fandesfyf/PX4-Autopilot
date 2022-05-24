@@ -3594,7 +3594,7 @@ void MavlinkReceiver::start()
 	cmdparam.sched_priority = SCHED_PRIORITY_MAX - 60;
 	(void)pthread_attr_setschedparam(&customCMD_thread_attr, &cmdparam);
 	pthread_attr_setstacksize(&customCMD_thread_attr,
-				  PX4_STACK_ADJUSTED(sizeof(MavlinkReceiver) + 2000 + MAVLINK_RECEIVER_NET_ADDED_STACK));
+				  PX4_STACK_ADJUSTED(sizeof(MavlinkReceiver) + 2222 + MAVLINK_RECEIVER_NET_ADDED_STACK));
 
 	pthread_create(&_customCMD_thread, &customCMD_thread_attr, MavlinkReceiver::start_handle_offboard_cmd, (void *)this);
 

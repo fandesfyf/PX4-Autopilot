@@ -183,7 +183,7 @@ int uart_thread_main(int argc, char *argv[])
 			buffer[b_point] = data;
 			if (data == '<') {
 
-				PX4_INFO("read end %s\n%f %f %f", buffer,(double)result[0],(double)result[1],(double)result[2]);
+				// PX4_INFO("read end %s\n%f %f %f", buffer,(double)result[0],(double)result[1],(double)result[2]);
 				reading=false;
 				uwc_status.timestamp= hrt_absolute_time();
 				uwc_status.temperature=result[0];

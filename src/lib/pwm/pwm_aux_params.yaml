@@ -36,7 +36,7 @@ parameters:
                     Set to 1000 for industry default or 900 to increase servo travel.
             type: int32
             unit: us
-            min: 800
+            min: 500
             max: 1400
             default: 1000
 
@@ -47,8 +47,8 @@ parameters:
                     Set to 2000 for industry default or 2100 to increase servo travel.
             type: int32
             unit: us
-            min: 1600
-            max: 2200
+            min: 1000
+            max: 2500
             default: 2000
 
         PWM_AUX_DISARM:

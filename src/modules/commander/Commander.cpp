@@ -2664,13 +2664,13 @@ Commander::run()
 					}
 				}
 
-				if (fd_status_flags.imbalanced_prop
-				    && !_imbalanced_propeller_check_triggered) {
-					_status_changed = true;
-					_imbalanced_propeller_check_triggered = true;
-					imbalanced_prop_failsafe(&_mavlink_log_pub, _status, _status_flags, &_internal_state,
-								 (imbalanced_propeller_action_t)_param_com_imb_prop_act.get());
-				}
+				// if (fd_status_flags.imbalanced_prop
+				//     && !_imbalanced_propeller_check_triggered) {
+				// 	_status_changed = true;
+				// 	_imbalanced_propeller_check_triggered = true;
+				// 	imbalanced_prop_failsafe(&_mavlink_log_pub, _status, _status_flags, &_internal_state,
+				// 				 (imbalanced_propeller_action_t)_param_com_imb_prop_act.get());
+				// }
 			}
 		}
 

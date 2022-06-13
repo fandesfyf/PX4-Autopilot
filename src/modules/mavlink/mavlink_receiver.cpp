@@ -456,7 +456,7 @@ MavlinkReceiver::handle_message_custom_cmd(mavlink_message_t *msg)
 
 		default:
 			is_offboard_mode = false;
-			send_vehicle_command(vehicle_command_s::VEHICLE_CMD_DO_SET_MODE, 1.0f, PX4_CUSTOM_MAIN_MODE_POSCTL);
+			send_vehicle_command(vehicle_command_s::VEHICLE_CMD_DO_SET_MODE, 1.0f, PX4_CUSTOM_MAIN_MODE_STABILIZED);
 			break;
 		}
 
@@ -2072,10 +2072,10 @@ MavlinkReceiver::handle_message_rc_channels(mavlink_message_t *msg)
 	mavlink_rc_channels_t rc_channels;
 	mavlink_msg_rc_channels_decode(msg, &rc_channels);
 
-	if (msg->compid != MAV_COMP_ID_SYSTEM_CONTROL) {
-		PX4_DEBUG("Mavlink receiver only processes RC_CHANNELS from MAV_COMP_ID_SYSTEM_CONTROL");
-		return;
-	}
+	// if (msg->compid != MAV_COMP_ID_SYSTEM_CONTROL) {
+	// 	PX4_DEBUG("Mavlink receiver only processes RC_CHANNELS from MAV_COMP_ID_SYSTEM_CONTROL");
+	// 	return;
+	// }
 
 	input_rc_s rc{};
 
@@ -2138,6 +2138,7 @@ MavlinkReceiver::handle_message_rc_channels_override(mavlink_message_t *msg)
 {
 	mavlink_rc_channels_override_t man;
 	mavlink_msg_rc_channels_override_decode(msg, &man);
+	PX4_INFO("rec rc channels");
 
 	// Check target
 	if (man.target_system != 0 && man.target_system != _mavlink->get_system_id()) {
@@ -2153,7 +2154,8 @@ MavlinkReceiver::handle_message_rc_channels_override(mavlink_message_t *msg)
 	rc.rc_lost = false;
 	rc.rc_lost_frame_count = 0;
 	rc.rc_total_frame_count = 1;
-	rc.input_source = input_rc_s::RC_INPUT_SOURCE_MAVLINK;
+	// rc.input_source = input_rc_s::RC_INPUT_SOURCE_MAVLINK;
+	rc.input_source = input_rc_s::RC_INPUT_SOURCE_PX4FMU_PPM;
 
 	// channels
 	rc.values[0] = man.chan1_raw;
@@ -2190,6 +2192,7 @@ MavlinkReceiver::handle_message_rc_channels_override(mavlink_message_t *msg)
 			break;
 		}
 	}
+	PX4_INFO("pub rc channels");
 
 	// publish uORB message
 	_rc_pub.publish(rc);
@@ -3818,7 +3821,7 @@ void MavlinkReceiver::handle_offboard_thread()
 					send_vehicle_command(vehicle_command_s::VEHICLE_CMD_COMPONENT_ARM_DISARM,
 							     static_cast<float>(vehicle_command_s::ARMING_ACTION_DISARM), 21196.f);//21196.f强制
 					usleep(100000);
-					send_vehicle_command(vehicle_command_s::VEHICLE_CMD_DO_SET_MODE, 1.0f, PX4_CUSTOM_MAIN_MODE_POSCTL);
+					send_vehicle_command(vehicle_command_s::VEHICLE_CMD_DO_SET_MODE, 1.0f, PX4_CUSTOM_MAIN_MODE_STABILIZED);
 
 				}
 
